@@ -1,3 +1,17 @@
 {
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.project.sourcePaths": [
+        "src/main/java",
+        "src/test/java"
+    ],
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-26",
+            "path": "C:\\Users\\markr\\.jdks\\openjdk-26.0.1",
+            "default": true
+        }
+    ],
+    "java.compile.options": {
+        "enablePreview": true
+    }
 }

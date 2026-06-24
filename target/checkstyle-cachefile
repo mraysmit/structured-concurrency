@@ -1,5 +1,11 @@
-#Wed Jun 24 15:53:09 CST 2026
-C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\App.java=1782283073507
-C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\test\\java\\dev\\mars\\AppTest.java=1782285211793
+#Wed Jun 24 17:44:30 CST 2026
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\App.java=1782292681090
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\client\\TimedResponse.java=1782291793845
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\weather\\WeatherRequest.java=1782288349664
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\weather\\WeatherResponse.java=1782288349664
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\weather\\WeatherService.java=1782288349661
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\main\\java\\dev\\mars\\weather\\sim\\SimulatedWeatherService.java=1782288349664
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\test\\java\\dev\\mars\\AppTest.java=1782288118672
+C\:\\Users\\markr\\dev\\java\\corejava\\structured-concurrency\\src\\test\\java\\dev\\mars\\weather\\sim\\SimulatedWeatherServiceTest.java=1782288349664
 configuration*?=3CE3197336D48B0723746D18F522F903C278D7C8
 module-resource*?\:checkstyle/suppressions.xml=7D9733204C44A4AA6BB1EA4111615A35F09F1E9
