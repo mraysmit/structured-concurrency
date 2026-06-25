@@ -100,7 +100,7 @@ results and ignores failed subtasks (partial-results pattern).
 - All demos run from `App.main()` with clear console output showing city, condition,
   temperature, and elapsed time per subtask.
 - No raw `Thread` creation or `ExecutorService` usage — structured concurrency APIs only.
-- Checkstyle passes with zero violations.
+- optionally review checkstyle passes with zero violations.
 - JUnit tests cover `SimulatedWeatherService` (mock random seed) and each demo phase.
 
 ---

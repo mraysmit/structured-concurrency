@@ -3,6 +3,7 @@ package dev.mars;
 import dev.mars.client.TimedResponse;
 import dev.mars.client.WeatherClient;
 import dev.mars.weather.WeatherRequest;
+import dev.mars.weather.WeatherService;
 import dev.mars.weather.sim.SimulatedWeatherService;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ public final class App {
         runPhase2();
         runPhase3();
         runPhase4();
+        runPhase5();
     }
 
     private static void runPhase1() throws InterruptedException {
@@ -126,6 +128,34 @@ public final class App {
         }
         System.out.printf("Completed %d/%d, Total time: %d ms%n%n",
                 completed, requests.size(), total);
+    }
+
+    private static void runPhase5() throws InterruptedException {
+        System.out.println("=== Phase 5: Partial Results (custom Joiner) ===");
+        WeatherService delegate = new SimulatedWeatherService();
+        WeatherClient client = new WeatherClient(request -> {
+            if ("Paris".equals(request.city()) || "Madrid".equals(request.city())) {
+                throw new IllegalStateException("simulated provider failure");
+            }
+            return delegate.fetch(request);
+        });
+        LocalDate today = LocalDate.now();
+        List<WeatherRequest> requests = List.of(
+                new WeatherRequest("default", "GB", "London", today),
+                new WeatherRequest("default", "FR", "Paris", today),
+                new WeatherRequest("default", "DE", "Berlin", today),
+                new WeatherRequest("default", "ES", "Madrid", today),
+                new WeatherRequest("default", "IT", "Rome", today));
+        long start = System.currentTimeMillis();
+        List<TimedResponse> responses = client.fetchSuccessful(requests);
+        long total = System.currentTimeMillis() - start;
+        for (TimedResponse tr : responses) {
+            System.out.printf("  %s: %d\u00b0C, %s (%d ms)%n",
+                    tr.response().city(), tr.response().temperature(),
+                    tr.response().condition(), tr.elapsedMs());
+        }
+        System.out.printf("Collected %d/%d successful results, Total time: %d ms%n%n",
+                responses.size(), requests.size(), total);
     }
 }
 

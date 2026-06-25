@@ -7,6 +7,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.StructuredTaskScope;
 
 /**
@@ -131,6 +133,46 @@ public final class WeatherClient {
                 }
             }
             return results;
+        }
+    }
+
+    /**
+     * Fetches weather forecasts concurrently and returns only successful responses.
+     * Failed subtasks are ignored by a custom joiner so one failed lookup does not
+     * cancel or fail the whole operation.
+     *
+     * @param requests the list of weather requests
+     * @return the successful timed responses
+     * @throws InterruptedException if the current thread is interrupted
+     */
+    public List<TimedResponse> fetchSuccessful(List<WeatherRequest> requests) throws InterruptedException {
+        try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(new SuccessfulResponsesJoiner())) {
+            for (WeatherRequest request : requests) {
+                scope.fork(() -> {
+                    long start = System.currentTimeMillis();
+                    WeatherResponse response = service.fetch(request);
+                    return new TimedResponse(request.provider(), response, System.currentTimeMillis() - start);
+                });
+            }
+            return scope.join();
+        }
+    }
+
+    private static final class SuccessfulResponsesJoiner implements StructuredTaskScope.Joiner<TimedResponse, List<TimedResponse>> {
+
+        private final Queue<TimedResponse> responses = new ConcurrentLinkedQueue<>();
+
+        @Override
+        public boolean onComplete(StructuredTaskScope.Subtask<TimedResponse> subtask) {
+            if (subtask.state() == StructuredTaskScope.Subtask.State.SUCCESS) {
+                responses.add(subtask.get());
+            }
+            return false;
+        }
+
+        @Override
+        public List<TimedResponse> result() {
+            return List.copyOf(responses);
         }
     }
 }
