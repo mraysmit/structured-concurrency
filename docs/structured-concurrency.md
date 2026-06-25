@@ -71,29 +71,40 @@ Show how `StructuredTaskScope` (JEP 505, Java 26) makes it easy to:
 3. Wait for the **first** successful result (shutdown-on-success semantics).
 4. Enforce a single deadline across all subtasks with a timeout.
 
-### Phases
+### Examples
 
-#### Phase 1 — Sequential baseline
+#### Example 1 — Sequential baseline
 Call `SimulatedWeatherService.fetch()` for a list of cities one at a time.
 Record total elapsed time. This establishes what unstructured sequential code looks like.
 
-#### Phase 2 — Fan-out with `ShutdownOnFailure`
+#### Example 2 — Fan-out with `ShutdownOnFailure`
 Use `StructuredTaskScope.ShutdownOnFailure` to fork one subtask per city.
 Call `scope.join()` then `scope.throwIfFailed()`.
 Collect all `WeatherResponse` results. Total time ≈ slowest single call.
 
-#### Phase 3 — Race with `ShutdownOnSuccess`
+#### Example 3 — Race with `ShutdownOnSuccess`
 Use `StructuredTaskScope.ShutdownOnSuccess` to fork the same city across multiple
 "provider" subtasks (simulating redundant providers).
 Return the first response that arrives and cancel the rest.
 
-#### Phase 4 — Timeout
-Wrap Phase 2 in `scope.joinUntil(Instant.now().plusSeconds(3))`.
+#### Example 4 — Timeout
+Wrap Example 2 in `scope.joinUntil(Instant.now().plusSeconds(3))`.
 Demonstrate clean cancellation when the deadline expires before all tasks complete.
 
-#### Phase 5 — Custom scope (stretch goal)
+#### Example 5 — Custom scope (stretch goal)
 Implement a custom `StructuredTaskScope` subclass that collects only successful
 results and ignores failed subtasks (partial-results pattern).
+
+#### Example 6 — Nested structured concurrency
+Fork one subtask per city. Inside each city subtask, race multiple provider
+subtasks and return the first successful provider response for that city.
+This demonstrates nested scopes: outer concurrency across cities, inner
+concurrency across providers.
+
+#### Example 7 — Failure cancellation
+Fork one subtask per city and simulate a failure in one lookup.
+Demonstrate that all-or-fail semantics cancel unfinished subtasks and fail
+the group instead of returning partial results.
 
 ### Acceptance criteria
 
@@ -101,7 +112,7 @@ results and ignores failed subtasks (partial-results pattern).
   temperature, and elapsed time per subtask.
 - No raw `Thread` creation or `ExecutorService` usage — structured concurrency APIs only.
 - optionally review checkstyle passes with zero violations.
-- JUnit tests cover `SimulatedWeatherService` (mock random seed) and each demo phase.
+- JUnit tests cover `SimulatedWeatherService` (mock random seed) and each demo Example.
 
 ---
 

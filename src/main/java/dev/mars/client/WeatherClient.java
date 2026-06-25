@@ -28,7 +28,10 @@ public final class WeatherClient {
     }
 
     /**
-     * Fetches weather forecasts for all requests sequentially and returns timed results.
+     * Example 1: sequential baseline.
+     *
+     * <p>Fetches weather forecasts one request at a time and records how long each call takes.
+     * This provides the comparison point for the structured concurrency examples.
      *
      * @param requests the list of weather requests
      * @return a list of timed responses in the same order as the requests
@@ -47,9 +50,11 @@ public final class WeatherClient {
 
 
     /**
-     * Fetches weather forecasts for all requests concurrently using structured concurrency.
-     * One subtask is forked per request using {@code Joiner.allSuccessfulOrThrow()}.
-     * If any subtask fails the scope is cancelled and the failure is thrown unchecked.
+     * Example 2: concurrent fan-out with all-or-fail semantics.
+     *
+     * <p>Forks one structured subtask per request and waits for every subtask to complete
+     * successfully. If any lookup fails, {@code Joiner.allSuccessfulOrThrow()} fails the scope
+     * and the remaining work is cancelled.
      *
      * @param requests the list of weather requests
      * @return a list of timed responses in the same order as the requests
@@ -70,9 +75,11 @@ public final class WeatherClient {
     }
 
     /**
-     * Fetches the first successful weather forecast by racing one subtask per provider request.
-     * Uses {@code Joiner.anySuccessfulOrThrow()} so the scope is cancelled as soon as one
-     * subtask completes successfully, returning the result from whichever provider won.
+     * Example 3: first-success provider race.
+     *
+     * <p>Forks one structured subtask per provider request and returns the first successful
+     * response. {@code Joiner.anySuccessfulOrThrow()} cancels the remaining provider calls once
+     * a winner is available.
      *
      * @param providerRequests one {@link WeatherRequest} per provider (same city, different provider name)
      * @return the timed response from whichever provider replied first
@@ -92,12 +99,12 @@ public final class WeatherClient {
         }
     }
 
-
     /**
-     * Fetches weather forecasts for all requests concurrently with a deadline.
-     * Uses {@code Joiner.awaitAll()} so all subtasks are awaited (or cancelled on timeout).
-     * Returns an {@code Optional} per request: present if the subtask completed before the
-     * deadline, empty if it was cancelled by the timeout.
+     * Example 4: concurrent fan-out with a shared timeout.
+     *
+     * <p>Forks one structured subtask per request and waits until all subtasks complete or the
+     * configured timeout expires. Each result is represented as an {@code Optional}: present when
+     * the lookup completed before the deadline, empty when it was cancelled by the timeout.
      *
      * @param requests the list of weather requests
      * @param timeout  the maximum time to wait for all responses
@@ -137,9 +144,11 @@ public final class WeatherClient {
     }
 
     /**
-     * Fetches weather forecasts concurrently and returns only successful responses.
-     * Failed subtasks are ignored by a custom joiner so one failed lookup does not
-     * cancel or fail the whole operation.
+     * Example 5: partial results with a custom joiner.
+     *
+     * <p>Forks one structured subtask per request and collects only successful responses.
+     * Failed subtasks are ignored, so one failed lookup does not cancel or fail the whole
+     * operation.
      *
      * @param requests the list of weather requests
      * @return the successful timed responses
@@ -147,6 +156,64 @@ public final class WeatherClient {
      */
     public List<TimedResponse> fetchSuccessful(List<WeatherRequest> requests) throws InterruptedException {
         try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(new SuccessfulResponsesJoiner())) {
+            for (WeatherRequest request : requests) {
+                scope.fork(() -> {
+                    long start = System.currentTimeMillis();
+                    WeatherResponse response = service.fetch(request);
+                    return new TimedResponse(request.provider(), response, System.currentTimeMillis() - start);
+                });
+            }
+            return scope.join();
+        }
+    }
+
+    /**
+     * Example 6: nested structured concurrency.
+     *
+     * <p>Forks one structured subtask per city. Each city subtask then starts its own structured
+     * scope to race the configured providers and return the first successful provider response for
+     * that city.
+     *
+     * @param cityRequests one request per city
+     * @param providers    the provider names to race for each city
+     * @return one winning timed response per city, in the same order as the city requests
+     * @throws InterruptedException if the current thread is interrupted
+     */
+    public List<TimedResponse> fetchFastestForEachCity(List<WeatherRequest> cityRequests, List<String> providers) throws InterruptedException {
+
+        try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(StructuredTaskScope.Joiner.allSuccessfulOrThrow())) {
+            for (WeatherRequest cityRequest : cityRequests) {
+                scope.fork(() -> {
+                    List<WeatherRequest> providerRequests = providers.stream()
+                        .map(provider -> new WeatherRequest(
+                                provider,
+                                cityRequest.country(),
+                                cityRequest.city(),
+                                cityRequest.date()))
+                        .toList();
+                    return fetchFirst(providerRequests);
+                });
+            }
+            return scope.join();
+        }
+    }
+
+    /**
+     * Example 7: failure cancellation.
+     *
+     * <p>Forks one structured subtask per request and treats the requests as one unit of work.
+     * If any lookup fails, {@code Joiner.allSuccessfulOrThrow()} fails the scope and cancels
+     * unfinished subtasks instead of returning partial results.
+     *
+     * @param requests the list of weather requests
+     * @return a list of timed responses if every request succeeds
+     * @throws InterruptedException if the current thread is interrupted
+     */
+    public List<TimedResponse> fetchAllCancellingOnFailure(
+            List<WeatherRequest> requests) throws InterruptedException {
+
+        try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(
+                StructuredTaskScope.Joiner.allSuccessfulOrThrow())) {
             for (WeatherRequest request : requests) {
                 scope.fork(() -> {
                     long start = System.currentTimeMillis();

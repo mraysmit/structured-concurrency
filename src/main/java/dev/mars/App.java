@@ -25,15 +25,17 @@ public final class App {
      * @throws InterruptedException if the current thread is interrupted
      */
     public static void main(String[] args) throws InterruptedException {
-        runPhase1();
-        runPhase2();
-        runPhase3();
-        runPhase4();
-        runPhase5();
+        runExample1();
+        runExample2();
+        runExample3();
+        runExample4();
+        runExample5();
+        runExample6();
+        runExample7();
     }
 
-    private static void runPhase1() throws InterruptedException {
-        System.out.println("=== Phase 1: Sequential Baseline ===");
+    private static void runExample1() throws InterruptedException {
+        System.out.println("=== Example 1: Sequential Baseline ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -55,8 +57,8 @@ public final class App {
         System.out.printf("Total time: %d ms%n%n", total);
     }
 
-    private static void runPhase2() throws InterruptedException {
-        System.out.println("=== Phase 2: Concurrent Fan-out (ShutdownOnFailure) ===");
+    private static void runExample2() throws InterruptedException {
+        System.out.println("=== Example 2: Concurrent Fan-out (ShutdownOnFailure) ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -76,8 +78,8 @@ public final class App {
         System.out.printf("Total time: %d ms%n%n", total);
     }
 
-    private static void runPhase3() throws InterruptedException {
-        System.out.println("=== Phase 3: Race per City (anySuccessfulOrThrow, 3 providers) ===");
+    private static void runExample3() throws InterruptedException {
+        System.out.println("=== Example 3: Race per City (anySuccessfulOrThrow, 3 providers) ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         String[][] cities = {
@@ -99,9 +101,9 @@ public final class App {
         System.out.printf("Total time: %d ms%n%n", total);
     }
 
-    private static void runPhase4() throws InterruptedException {
+    private static void runExample4() throws InterruptedException {
         Duration timeout = Duration.ofSeconds(1);
-        System.out.println("=== Phase 4: Timeout (" + timeout.toSeconds() + "s deadline) ===");
+        System.out.println("=== Example 4: Timeout (" + timeout.toSeconds() + "s deadline) ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -130,8 +132,8 @@ public final class App {
                 completed, requests.size(), total);
     }
 
-    private static void runPhase5() throws InterruptedException {
-        System.out.println("=== Phase 5: Partial Results (custom Joiner) ===");
+    private static void runExample5() throws InterruptedException {
+        System.out.println("=== Example 5: Partial Results (custom Joiner) ===");
         WeatherService delegate = new SimulatedWeatherService();
         WeatherClient client = new WeatherClient(request -> {
             if ("Paris".equals(request.city()) || "Madrid".equals(request.city())) {
@@ -156,6 +158,59 @@ public final class App {
         }
         System.out.printf("Collected %d/%d successful results, Total time: %d ms%n%n",
                 responses.size(), requests.size(), total);
+    }
+
+    private static void runExample6() throws InterruptedException {
+        System.out.println("=== Example 6: Nested Structured Concurrency ===");
+        WeatherClient client = new WeatherClient(new SimulatedWeatherService());
+        LocalDate today = LocalDate.now();
+        List<WeatherRequest> requests = List.of(
+                new WeatherRequest("default", "GB", "London", today),
+                new WeatherRequest("default", "FR", "Paris", today),
+                new WeatherRequest("default", "DE", "Berlin", today),
+                new WeatherRequest("default", "ES", "Madrid", today),
+                new WeatherRequest("default", "IT", "Rome", today));
+        List<String> providers = List.of("OpenWeather", "AccuWeather", "WeatherAPI");
+
+        long start = System.currentTimeMillis();
+        List<TimedResponse> responses = client.fetchFastestForEachCity(requests, providers);
+        long total = System.currentTimeMillis() - start;
+
+        for (TimedResponse tr : responses) {
+            System.out.printf("  %s: %d\u00b0C, %s (%d ms) [%s]%n",
+                    tr.response().city(), tr.response().temperature(),
+                    tr.response().condition(), tr.elapsedMs(), tr.provider());
+        }
+        System.out.printf("Total time: %d ms%n%n", total);
+    }
+
+    private static void runExample7() throws InterruptedException {
+        System.out.println("=== Example 7: Failure Cancellation ===");
+        WeatherService delegate = new SimulatedWeatherService();
+        WeatherClient client = new WeatherClient(request -> {
+            if ("Paris".equals(request.city())) {
+                throw new IllegalStateException("simulated lookup failure");
+            }
+            return delegate.fetch(request);
+        });
+        LocalDate today = LocalDate.now();
+        List<WeatherRequest> requests = List.of(
+                new WeatherRequest("default", "GB", "London", today),
+                new WeatherRequest("default", "FR", "Paris", today),
+                new WeatherRequest("default", "DE", "Berlin", today),
+                new WeatherRequest("default", "ES", "Madrid", today),
+                new WeatherRequest("default", "IT", "Rome", today));
+
+        long start = System.currentTimeMillis();
+        try {
+            client.fetchAllCancellingOnFailure(requests);
+            System.out.println("All lookups completed successfully.");
+        } catch (RuntimeException ex) {
+            long total = System.currentTimeMillis() - start;
+            System.out.printf("Lookup group failed after %d ms; unfinished subtasks were cancelled.%n",
+                    total);
+            System.out.printf("Failure type: %s%n%n", ex.getClass().getSimpleName());
+        }
     }
 }
 
