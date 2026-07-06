@@ -35,7 +35,7 @@ public final class App {
     }
 
     private static void runExample1() throws InterruptedException {
-        System.out.println("=== Example 1: Sequential Baseline ===");
+        System.out.println("=== Example 1: Sequential Baseline - one city at a time, total time adds up ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -58,7 +58,7 @@ public final class App {
     }
 
     private static void runExample2() throws InterruptedException {
-        System.out.println("=== Example 2: Concurrent Fan-out (ShutdownOnFailure) ===");
+        System.out.println("=== Example 2: Concurrent Fan-out - all cities requested together, fail as a group ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -79,7 +79,7 @@ public final class App {
     }
 
     private static void runExample3() throws InterruptedException {
-        System.out.println("=== Example 3: Race per City (anySuccessfulOrThrow, 3 providers) ===");
+        System.out.println("=== Example 3: Race per City - three providers compete, first success wins ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         String[][] cities = {
@@ -103,7 +103,8 @@ public final class App {
 
     private static void runExample4() throws InterruptedException {
         Duration timeout = Duration.ofSeconds(1);
-        System.out.println("=== Example 4: Timeout (" + timeout.toSeconds() + "s deadline) ===");
+        System.out.println("=== Example 4: Timeout - keep only responses that finish within "
+                + timeout.toSeconds() + "s ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -133,7 +134,7 @@ public final class App {
     }
 
     private static void runExample5() throws InterruptedException {
-        System.out.println("=== Example 5: Partial Results (custom Joiner) ===");
+        System.out.println("=== Example 5: Partial Results - collect successes and ignore failed cities ===");
         WeatherService delegate = new SimulatedWeatherService();
         WeatherClient client = new WeatherClient(request -> {
             if ("Paris".equals(request.city()) || "Madrid".equals(request.city())) {
@@ -161,7 +162,7 @@ public final class App {
     }
 
     private static void runExample6() throws InterruptedException {
-        System.out.println("=== Example 6: Nested Structured Concurrency ===");
+        System.out.println("=== Example 6: Nested Structured Concurrency - cities fan out, providers race inside ===");
         WeatherClient client = new WeatherClient(new SimulatedWeatherService());
         LocalDate today = LocalDate.now();
         List<WeatherRequest> requests = List.of(
@@ -185,7 +186,7 @@ public final class App {
     }
 
     private static void runExample7() throws InterruptedException {
-        System.out.println("=== Example 7: Failure Cancellation ===");
+        System.out.println("=== Example 7: Failure Cancellation - one failed lookup cancels unfinished work ===");
         WeatherService delegate = new SimulatedWeatherService();
         WeatherClient client = new WeatherClient(request -> {
             if ("Paris".equals(request.city())) {
