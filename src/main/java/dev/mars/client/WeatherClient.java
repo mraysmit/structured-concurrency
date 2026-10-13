@@ -62,7 +62,8 @@ public final class WeatherClient {
      */
     public List<TimedResponse> fetchAllConcurrent(List<WeatherRequest> requests) throws InterruptedException {
 
-        try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(StructuredTaskScope.Joiner.allSuccessfulOrThrow())) {
+        try (var scope = StructuredTaskScope.open(
+                StructuredTaskScope.Joiner.<TimedResponse, IllegalStateException>allSuccessfulOrThrow(IllegalStateException::new))) {
             for (WeatherRequest request : requests) {
                 scope.fork(() -> {
                     long start = System.currentTimeMillis();
@@ -86,8 +87,8 @@ public final class WeatherClient {
      * @throws InterruptedException if the current thread is interrupted
      */
     public TimedResponse fetchFirst(List<WeatherRequest> providerRequests) throws InterruptedException {
-        try (var scope = StructuredTaskScope.<TimedResponse, TimedResponse>open(
-                StructuredTaskScope.Joiner.anySuccessfulOrThrow())) {
+        try (var scope = StructuredTaskScope.open(
+                StructuredTaskScope.Joiner.<TimedResponse, IllegalStateException>anySuccessfulOrThrow(IllegalStateException::new))) {
             for (WeatherRequest request : providerRequests) {
                 scope.fork(() -> {
                     long start = System.currentTimeMillis();
@@ -113,22 +114,19 @@ public final class WeatherClient {
      */
     public List<Optional<TimedResponse>> fetchAllWithTimeout(List<WeatherRequest> requests, Duration timeout) throws InterruptedException {
         
-        try (var scope = StructuredTaskScope.<TimedResponse, Void>open(StructuredTaskScope.Joiner.awaitAll(), config -> config.withTimeout(timeout))) {
-            List<StructuredTaskScope.Subtask<TimedResponse>> subtasks =new ArrayList<>(requests.size());
-
+        try (var scope = StructuredTaskScope.open(
+                StructuredTaskScope.Joiner.<TimedResponse>allUntil(subtask -> false),
+                config -> config.withTimeout(timeout))) {
             for (WeatherRequest request : requests) {
-                subtasks.add(scope.fork(() -> {
+                scope.fork(() -> {
                     long start = System.currentTimeMillis();
                     WeatherResponse response = service.fetch(request);
                     return new TimedResponse(request.provider(), response, System.currentTimeMillis() - start);
-                }));
+                });
             }
 
-            try {
-                scope.join();
-            } catch (StructuredTaskScope.TimeoutException ignored) {
-                // deadline expired — check subtask states below to collect partial results
-            }
+            // This joiner returns partial results when the timeout expires.
+            List<StructuredTaskScope.Subtask<TimedResponse>> subtasks = scope.join();
 
             List<Optional<TimedResponse>> results = new ArrayList<>(subtasks.size());
 
@@ -155,7 +153,7 @@ public final class WeatherClient {
      * @throws InterruptedException if the current thread is interrupted
      */
     public List<TimedResponse> fetchSuccessful(List<WeatherRequest> requests) throws InterruptedException {
-        try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(new SuccessfulResponsesJoiner())) {
+        try (var scope = StructuredTaskScope.open(new SuccessfulResponsesJoiner())) {
             for (WeatherRequest request : requests) {
                 scope.fork(() -> {
                     long start = System.currentTimeMillis();
@@ -181,7 +179,8 @@ public final class WeatherClient {
      */
     public List<TimedResponse> fetchFastestForEachCity(List<WeatherRequest> cityRequests, List<String> providers) throws InterruptedException {
 
-        try (var scope = StructuredTaskScope.<TimedResponse, List<TimedResponse>>open(StructuredTaskScope.Joiner.allSuccessfulOrThrow())) {
+        try (var scope = StructuredTaskScope.open(
+                StructuredTaskScope.Joiner.<TimedResponse, IllegalStateException>allSuccessfulOrThrow(IllegalStateException::new))) {
             for (WeatherRequest cityRequest : cityRequests) {
                 scope.fork(() -> {
                     List<WeatherRequest> providerRequests = providers.stream()
@@ -198,7 +197,8 @@ public final class WeatherClient {
         }
     }
 
-    private static final class SuccessfulResponsesJoiner implements StructuredTaskScope.Joiner<TimedResponse, List<TimedResponse>> {
+    private static final class SuccessfulResponsesJoiner
+            implements StructuredTaskScope.Joiner<TimedResponse, List<TimedResponse>, RuntimeException> {
 
         private final Queue<TimedResponse> responses = new ConcurrentLinkedQueue<>();
 
@@ -212,6 +212,11 @@ public final class WeatherClient {
 
         @Override
         public List<TimedResponse> result() {
+            return List.copyOf(responses);
+        }
+
+        @Override
+        public List<TimedResponse> timeout() {
             return List.copyOf(responses);
         }
     }

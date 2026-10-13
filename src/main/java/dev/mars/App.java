@@ -204,7 +204,7 @@ public final class App {
 
         long start = System.currentTimeMillis();
         try {
-            client.fetchAllCancellingOnFailure(requests);
+            client.fetchAllConcurrent(requests);
             System.out.println("All lookups completed successfully.");
         } catch (RuntimeException ex) {
             long total = System.currentTimeMillis() - start;

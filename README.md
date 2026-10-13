@@ -1,11 +1,11 @@
 # Structured Concurrency
 
-A Java project exploring structured concurrency features introduced in modern Java (Java 26+).
+A Java project exploring structured concurrency preview features in Java 27.
 
 ## Requirements
 
-- Java 26+
-- Maven 3.6.3+
+- JDK 27 (preview features enabled by the build and launch configurations)
+- Maven 3.9.0+
 
 ## Build
 

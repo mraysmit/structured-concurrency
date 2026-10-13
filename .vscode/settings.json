@@ -6,8 +6,8 @@
     ],
     "java.configuration.runtimes": [
         {
-            "name": "JavaSE-26",
-            "path": "C:\\Users\\markr\\.jdks\\openjdk-26.0.1",
+            "name": "JavaSE-27",
+            "path": "C:\\Users\\markr\\.jdks\\openjdk-27",
             "default": true
         }
     ],
